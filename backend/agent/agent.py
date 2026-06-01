@@ -63,7 +63,7 @@ class LocalModel:
 
         response = self.client.create(
             prompt=prompt,
-            max_tokens=400,
+            max_tokens=4024,
             temperature=0.0,
             stop=["\nObservation:", "\nAction:", "\nFinal Answer:"],
         )

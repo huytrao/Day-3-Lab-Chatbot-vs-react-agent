@@ -42,7 +42,7 @@ class LocalProvider(LLMProvider):
 
         response = self.llm(
             full_prompt,
-            max_tokens=1024,
+            max_tokens=2048,
             stop=["<|end|>", "Observation:"],
             echo=False
         )
@@ -73,7 +73,7 @@ class LocalProvider(LLMProvider):
 
         stream = self.llm(
             full_prompt,
-            max_tokens=1024,
+            max_tokens=2048,
             stop=["<|end|>", "Observation:"],
             stream=True
         )

@@ -20,12 +20,12 @@ except ImportError:
     from tools import calculate_price, create_itinerary, get_weather, search_vin_knowledge
 
 try:
-    from ..agent.local_model import get_model_path, get_model_status, polish_answer_with_local_model
+    from ..agent.gemini_model import get_gemini_status, polish_answer_with_gemini
 except ImportError:
-    from agent.local_model import get_model_path, get_model_status, polish_answer_with_local_model
+    from agent.gemini_model import get_gemini_status, polish_answer_with_gemini
 
 
-MODEL_PATH = get_model_path()
+MODEL_PROVIDER = "gemini"
 
 
 def _normalize_text(text: str) -> str:
@@ -35,8 +35,8 @@ def _normalize_text(text: str) -> str:
 
 
 def _model_status() -> str:
-    """Return local model availability without making the graph depend on it."""
-    return get_model_status()
+    """Return model availability without making the graph depend on it."""
+    return get_gemini_status()
 
 
 def _append_trace(state: AgentState, item: dict[str, Any]) -> list[dict[str, Any]]:
@@ -208,8 +208,15 @@ def synthesize_answer_node(state: AgentState) -> AgentState:
     if state.get("intent") in {"knowledge", "general"}:
         final_answer += " Neu di cung gia dinh co tre nho, hay uu tien khu vui choi nhe, ho boi tre em va diem nghi chan."
 
-    polished_answer = polish_answer_with_local_model(state.get("user_message", ""), final_answer)
-    used_local_model = polished_answer != final_answer
+    gemini_result = polish_answer_with_gemini(
+        user_message=state.get("user_message", ""),
+        draft_answer=final_answer,
+        user_profile=state.get("user_profile") or {},
+        chat_history=state.get("chat_history") or [],
+    )
+    polished_answer = gemini_result.get("text") or final_answer
+    used_model = bool(gemini_result.get("used"))
+    model_status = str(gemini_result.get("status") or _model_status())
 
     itinerary = state.get("itinerary") or [
         {"time": "09:00", "place": "Check-in", "description": "Vao cong va thong nhat diem hen."},
@@ -230,7 +237,7 @@ def synthesize_answer_node(state: AgentState) -> AgentState:
             ),
             {
                 "type": "observation",
-                "content": "Local model polished the final answer." if used_local_model else f"Local model skipped. {_model_status()}",
+                "content": model_status if used_model else f"Gemini skipped. {model_status}",
             },
         ],
     }

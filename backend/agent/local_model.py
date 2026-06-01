@@ -86,7 +86,7 @@ def polish_answer_with_local_model(user_message: str, draft_answer: str) -> str:
     try:
         response = llm(
             prompt,
-            max_tokens=256,
+            max_tokens=1024,
             temperature=0.2,
             stop=["<|end|>"],
             echo=False,

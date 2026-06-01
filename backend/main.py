@@ -8,6 +8,7 @@ from fastapi.responses import FileResponse, Response
 try:
     from . import crud
     from .agent_connector import run_vinwonders_agent
+    from .agent.gemini_model import get_gemini_model_name, get_gemini_status, is_gemini_configured
     from .database import close_database, ping_database
     from .schemas import (
         ChatRequest,
@@ -20,6 +21,7 @@ try:
 except ImportError:
     import crud
     from agent_connector import run_vinwonders_agent
+    from agent.gemini_model import get_gemini_model_name, get_gemini_status, is_gemini_configured
     from database import close_database, ping_database
     from schemas import (
         ChatRequest,
@@ -33,6 +35,9 @@ except ImportError:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    app.state.ai_provider = "gemini"
+    app.state.ai_model = get_gemini_model_name()
+    app.state.ai_configured = is_gemini_configured()
     await ping_database()
     yield
     close_database()
@@ -70,7 +75,14 @@ async def favicon() -> Response:
 @app.get("/health")
 @app.get("/api/health")
 async def health_check() -> dict:
-    return {"status": 200, "message": "Backend is running"}
+    return {
+        "status": 200,
+        "message": "Backend is running",
+        "ai_provider": "gemini",
+        "ai_model": get_gemini_model_name(),
+        "ai_configured": is_gemini_configured(),
+        "ai_status": get_gemini_status(),
+    }
 
 
 def default_user_profile(user_id: str) -> dict:
