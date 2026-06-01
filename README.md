@@ -17,6 +17,27 @@ pip install -r requirements.txt
 
 ### 3. Directory Structure
 - `src/tools/`: Extension point for your custom tools.
+- `backend/`: FastAPI backend and React Agent logic.
+- `data/`: Data ingestion, crawling, and RAG setup.
+- `demo.html`: The Frontend Chat UI.
+
+### 4. Running the Project
+
+#### Start the Backend (FastAPI)
+By default, the backend runs on port 8000. Open a terminal and run:
+```bash
+python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000 --reload
+```
+You can access the API Swagger Docs at `http://127.0.0.1:8000/docs`.
+
+#### Start the Frontend
+Simply open `demo.html` in your browser. You can do this by double-clicking the file in your file explorer, or using a tool like VS Code Live Server.
+
+#### Run Member 5 Quickstart (CLI mode)
+To test the agent directly in the terminal without the web UI:
+```bash
+python member5_quickstart.py
+```
 
 ## 🏠 Running with Local Models (CPU)
 
