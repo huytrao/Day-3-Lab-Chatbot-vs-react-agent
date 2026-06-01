@@ -8,7 +8,7 @@ I. TECHNICAL CONTRIBUTION (15 Points)
 Trong dự án VinWonders AI Advisor, tôi chịu trách nhiệm chính về việc xây dựng hệ thống thu thập thông tin người dùng từ Frontend, tích hợp API, xây dựng cấu trúc công cụ (Tools) và cài đặt vòng lặp ReAct loop trên Backend FastAPI.
 
 1. Các module code đã triển khai:
-Hệ thống API Endpoint (main.py): Thiết lập class ChatRequest bằng Pydantic để hứng trọn vẹn ngữ cảnh cá nhân hóa từ form (Tên, ngân sách, số người, trẻ em, sở thích) và nối chuỗi tạo thành Context thông minh trước khi đưa vào mô hình gemini-2.5-flash.
+   Hệ thống API Endpoint (main.py): Thiết lập class ChatRequest bằng Pydantic để hứng trọn vẹn ngữ cảnh cá nhân hóa từ form (Tên, ngân sách, số người, trẻ em, sở thích) và nối chuỗi tạo thành Context thông minh trước khi đưa vào mô hình gemini-2.5-flash.
 
 Xây dựng Custom Tools cho ReAct Agent:
 
@@ -17,23 +17,23 @@ tool_tinh_gia_ve: Nhận vào số lượng người lớn, trẻ em và mức n
 tool_goi_y_lich_trinh: Dựa vào sở thích (cảm giác mạnh, check-in, công viên nước) để sinh ra timeline lịch trình chi tiết theo giờ cho khách.
 
 2. Minh chứng chất lượng Code (Code Quality & Modularity):
-Mã nguồn được tôi đóng gói dạng hàm sạch (clean functions), có xử lý ngoại lệ (try-except) chặt chẽ tại API endpoint để đảm bảo nếu Gemini hoặc API Key gặp sự cố, hệ thống vẫn trả về thông báo lỗi thân thiện cho Frontend thay vì làm sập server.
+   Mã nguồn được tôi đóng gói dạng hàm sạch (clean functions), có xử lý ngoại lệ (try-except) chặt chẽ tại API endpoint để đảm bảo nếu Gemini hoặc API Key gặp sự cố, hệ thống vẫn trả về thông báo lỗi thân thiện cho Frontend thay vì làm sập server.
 
 II. DEBUGGING CASE STUDY (10 Points)
 "Fail Early, Learn Fast" - Phân tích một lỗi nghiêm trọng trong quá trình phát triển hệ thống Agent v1.
 
 1. Mô tả lỗi (The Failure)
-Loại lỗi: Parser Error / Infinite Loop (Vòng lặp vô hạn).
+   Loại lỗi: Parser Error / Infinite Loop (Vòng lặp vô hạn).
 
 Trạng thái: Khi khách hàng nhập sở thích là "Tôi đi 4 người, muốn chơi công viên nước và muốn tiết kiệm chi phí", Agent v1 đọc dữ liệu từ form nhưng bị bối rối giữa việc nên gọi tool_tinh_gia_ve trước hay tool_goi_y_lich_trinh trước. Khung suy nghĩ (Thought) của Agent liên tục lặp đi lặp lại việc gọi tool tính giá vé mà không thể đưa ra câu trả lời cuối cùng (Final Answer), dẫn đến cạn kiệt Token (Token exhaustion).
 
 2. Quá trình Debug bằng Telemetry/Logs
-Khi kiểm tra luồng chạy thông qua log terminal của FastAPI, tôi phát hiện ra:
+   Khi kiểm tra luồng chạy thông qua log terminal của FastAPI, tôi phát hiện ra:
 
 Mô hình bị kẹt vì System Prompt ban đầu chưa định nghĩa rõ ràng cấu trúc đầu ra (Output format) cho ReAct khiến parser của Backend không bóc tách được từ khóa Final Answer:.
 
 3. Giải pháp khắc phục (Resolution)
-Tôi đã tiến hành cải tiến lên Agent v2 bằng cách tinh chỉnh lại system_instruction trong file Python.
+   Tôi đã tiến hành cải tiến lên Agent v2 bằng cách tinh chỉnh lại system_instruction trong file Python.
 
 Ép buộc mô hình tuân thủ nghiêm ngặt cấu trúc: Thought -> Action -> Observation -> Final Answer.
 

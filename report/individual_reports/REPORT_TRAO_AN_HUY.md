@@ -8,16 +8,16 @@
 
 ## I. Technical Contribution (15 Points)
 
-*Describe your specific contribution to the codebase (e.g., implemented a specific tool, fixed the parser, etc.).*
+_Describe your specific contribution to the codebase (e.g., implemented a specific tool, fixed the parser, etc.)._
 
-- **Modules Implemented**: 
+- **Modules Implemented**:
   - `backend/agent/agent.py` - Core ReAct agent implementation
   - `backend/agent/system_prompt.txt` - System prompt with persona and guardrails
   - `src/core/llm_provider.py` - Abstract LLM provider interface
   - `tests/test_member5_react.py` - Comprehensive test suite (8 tests)
   - `tests/test_integration_member5.py` - Integration workflow demonstration
 
-- **Code Highlights**: 
+- **Code Highlights**:
   - **ReAct Loop**: Implemented full Thought-Action-Observation cycle with max 5 iterations to prevent infinite loops and API cost explosion
   - **Tool Integration**: Integrated 4 tools (get_weather, search_vin_knowledge, calc_price, read_graph) with JSON-based action parsing
   - **System Prompt**: Designed comprehensive prompt with Vietnamese persona (addressing users as "quý khách", referring to self as "em"), task definition, and strict guardrails against hallucination
@@ -29,7 +29,7 @@
 
 ## II. Debugging Case Study (10 Points)
 
-*Analyze a specific failure event you encountered during the lab using the logging system.*
+_Analyze a specific failure event you encountered during the lab using the logging system._
 
 - **Problem Description**: Initial implementation had tool call accuracy issue where the LLM would generate malformed JSON actions (e.g., `Action: {"tool": "search", "params": null}`), causing JSON parse failures and breaking the agent loop. This resulted in the agent getting stuck or falling back without attempting the intended action.
 
@@ -37,7 +37,7 @@
 
 - **Diagnosis**: The issue stemmed from two factors: (1) Insufficient examples in the system prompt showing complete, valid JSON action structures, and (2) Lack of a validation/retry mechanism when JSON parsing failed. The model wasn't "hallucinating" - it was simply not generating production-grade JSON consistently.
 
-- **Solution**: 
+- **Solution**:
   1. Updated `system_prompt.txt` to include 3 complete example JSON actions with all required fields populated
   2. Implemented fallback generation logic in `agent.py` that attempts JSON parsing and, on failure, reconstructs valid JSON from the model's intent
   3. Added explicit guardrail: "Nếu tool không có dữ liệu, hãy trả về Em chưa tìm thấy thông tin"
@@ -49,9 +49,9 @@ Result: 100% tool call accuracy achieved across all 8 test cases.
 
 ## III. Personal Insights: Chatbot vs ReAct (10 Points)
 
-*Reflect on the reasoning capability difference.*
+_Reflect on the reasoning capability difference._
 
-1. **Reasoning Power of `Thought` Block**: 
+1. **Reasoning Power of `Thought` Block**:
    - The `Thought` block was transformative. A traditional chatbot would jump directly from user query to response without intermediate reasoning. With the ReAct agent, the `Thought` block forces explicit reasoning before action selection.
    - Example: When asked "Nên mang theo gì đi Wave Park?", a chatbot might guess or hallucinate advice. The agent first thinks: "I need weather data, venue info, age-appropriate attractions, packing guidelines" - then systematically retrieves this data via tools before answering. This prevents confidence-without-knowledge issues.
    - The transparency is valuable: users can see why the agent made specific tool calls, increasing trust.
@@ -71,14 +71,14 @@ Result: 100% tool call accuracy achieved across all 8 test cases.
 
 ## IV. Future Improvements (5 Points)
 
-*How would you scale this for a production-level AI agent system?*
+_How would you scale this for a production-level AI agent system?_
 
-- **Scalability**: 
+- **Scalability**:
   - Implement async/parallel tool execution: Currently tools execute sequentially. For independent tools (e.g., get_weather + search_vin_knowledge), parallel execution would halve latency.
   - Use message queues (RabbitMQ/Kafka) to decouple agent loops from tool endpoints, enabling horizontal scaling.
   - Cache tool responses with TTL (e.g., weather cache for 6 hours) to reduce redundant calls.
 
-- **Safety**: 
+- **Safety**:
   - Implement a "Supervisor" LLM that audits agent actions before execution (similar to Constitutional AI). The supervisor checks: "Is this tool call reasonable? Does it respect user privacy? Could it cause harm?"
   - Add rate limiting and cost controls: Track API spend per user/session, alert or throttle if spending exceeds threshold.
   - Implement human-in-the-loop for high-stakes actions (e.g., booking transactions) where an agent decision triggers a human review step.
