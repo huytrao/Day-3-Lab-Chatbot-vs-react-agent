@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VinWonders AI Advisor - Tư Vấn Trực Tuyến</title>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        :root {
+            --primary: #FF6B00; /* Màu cam thương hiệu VinWonders */
+            --secondary: #00A896; /* Màu xanh ngọc lục bảo */
+            --text-dark: #2d3748;
+            --glass-bg: rgba(255, 255, 255, 0.82);
+            --glass-border: rgba(255, 255, 255, 0.6);
+        }
+
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            /* NỀN GRADIENT CAM VÀNG MÙA HÈ NĂNG ĐỘNG */
+            background: linear-gradient(135deg, #FFD000 0%, #FF6B00 50%, #FF3C00 100%); 
+            background-attachment: fixed;
+            margin: 0; 
+            padding: 20px;
+            color: var(--text-dark);
+            min-height: 100vh;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        /* HIỆU ỨNG NẮNG MÙA HÈ DI CHUYỂN */
+        body::before {
+            content: '';
+            position: fixed;
+            top: -150px;
+            right: -150px;
+            width: 550px;
+            height: 550px;
+            background: radial-gradient(circle, rgba(255,255,255,1) 0%, rgba(255,234,0,0.5) 35%, rgba(255,107,0,0) 70%);
+            border-radius: 50%;
+            z-index: 0;
+            filter: blur(20px);
+            animation: sunMove 9s infinite alternate ease-in-out;
+            pointer-events: none;
+        }
+
+        @keyframes sunMove {
+            0% { transform: translate(0, 0) scale(1); opacity: 0.8; }
+            50% { transform: translate(-40px, 30px) scale(1.1); opacity: 0.95; }
+            100% { transform: translate(20px, -10px) scale(1.2) rotate(45deg); opacity: 1; }
+        }
+
+        /* MẢNG GRADIENT MÀU XANH DƯƠNG RỘNG LƯỚT SÓNG */
+        body::after {
+            content: '';
+            position: fixed;
+            bottom: -300px; 
+            right: -200px;  
+            width: 850px;   
+            height: 850px;  
+            background: radial-gradient(circle, rgba(0, 110, 255, 0.55) 0%, rgba(0, 168, 150, 0.25) 50%, rgba(255, 107, 0, 0) 70%);
+            border-radius: 50%;
+            z-index: 0;
+            filter: blur(50px); 
+            animation: blueMove 12s infinite alternate ease-in-out;
+            pointer-events: none;
+        }
+
+        @keyframes blueMove {
+            0% { transform: translate(0, 0) scale(1); opacity: 0.75; }
+            50% { transform: translate(-60px, -40px) scale(1.15); opacity: 0.95; }
+            100% { transform: translate(40px, 20px) scale(0.95); opacity: 0.85; }
+        }
+
+        /* LOGO VINWONDERS Ở GÓC TRÊN TRÁI */
+        .brand-logo {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            width: 140px;
+            z-index: 10;
+            filter: drop-shadow(0 4px 6px rgba(0,0,0,0.15));
+        }
+
+        /* THIẾT KẾ KHUNG MÀN HÌNH CHAT GLASSMORPHISM SANG TRỌNG */
+        .screen { 
+            position: relative;
+            z-index: 1;
+            width: 92%; 
+            max-width: 850px; 
+            margin: 50px auto 30px auto; 
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px) saturate(160%);
+            -webkit-backdrop-filter: blur(20px) saturate(160%);
+            border-radius: 24px; 
+            box-shadow: 0 30px 60px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.6); 
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            border: 1px solid var(--glass-border);
+        }
+
+        /* Banner hình ảnh đầu trang */
+        .banner-wrapper {
+            position: relative;
+            height: 160px;
+            background: linear-gradient(135deg, var(--primary), #ff9e00);
+        }
+        .banner { 
+            width: 100%; 
+            height: 100%; 
+            object-fit: cover; 
+            opacity: 0.85;
+        }
+
+        .content { padding: 35px 30px; }
+        
+        h1 { font-size: 26px; margin-top: 0; color: var(--text-dark); font-weight: 800; text-align: center; letter-spacing: -0.5px;}
+
+        /* Khung nhập liệu chuyên nghiệp */
+        .input-group {
+            position: relative;
+            margin-bottom: 20px;
+        }
+        .input-group i {
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #a0aec0;
+        }
+        input, select { 
+            width: 100%; 
+            padding: 14px 15px 14px 45px; 
+            border-radius: 14px; 
+            border: 1.5px solid rgba(226, 232, 240, 0.8); 
+            box-sizing: border-box; 
+            font-size: 15px;
+            transition: all 0.3s ease;
+            background-color: rgba(248, 250, 258, 0.7);
+        }
+        input:focus, select:focus {
+            border-color: var(--primary);
+            background-color: white;
+            outline: none;
+            box-shadow: 0 0 0 4px rgba(255, 107, 0, 0.15);
+        }
+
+        label { font-weight: 600; font-size: 14px; color: #4a5568; display: block; margin-bottom: 8px;}
+
+        /* Nút bấm */
+        button { 
+            background: linear-gradient(135deg, var(--primary) 0%, #ff8800 100%); 
+            color: white; 
+            font-weight: 600; 
+            font-size: 16px;
+            cursor: pointer; 
+            border: none; 
+            padding: 15px;
+            width: 100%;
+            border-radius: 14px;
+            transition: all 0.3s ease; 
+            box-shadow: 0 4px 15px rgba(255, 107, 0, 0.25);
+        }
+        button:hover { 
+            transform: translateY(-1px);
+            box-shadow: 0 6px 22px rgba(255, 107, 0, 0.35);
+        }
+        button:active { transform: translateY(1px); }
+
+        /* THANH ĐIỀU HƯỚNG CHAT TINH GIẢN */
+        .chat-header {
+            background: rgba(255, 255, 255, 0.45);
+            padding: 18px 25px;
+            border-bottom: 1px solid rgba(237, 242, 247, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .bot-status-info { flex: 1; }
+        .bot-name { font-weight: 800; font-size: 18px; color: var(--text-dark); margin: 0; letter-spacing: -0.3px; }
+        .header-online-dot { width: 8px; height: 8px; background-color: #48bb78; border-radius: 50%; display: inline-block; animation: pulse 2s infinite; }
+
+        /* KHUNG CHAT ĐÃ CÓ NỀN BÃI BIỂN PHỦ TRẮNG MỜ 95% SIÊU NHẠT */
+        .chat-container { 
+            padding: 25px; 
+            background: linear-gradient(rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.95)), 
+                        url('https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRU0GPn17Egn5Y8tpUf4-s3e9C_m1yZNb9wUA&s'); 
+            background-size: cover;
+            background-position: center;
+        } 
+        
+        .chat-box { 
+            height: 420px; 
+            overflow-y: auto; 
+            padding-right: 5px;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        /* Tin nhắn bóng chat tinh chỉnh nghệ thuật */
+        .msg-wrapper { max-width: 80%; margin-bottom: 18px; display: flex; align-items: flex-end; clear: both;}
+        .msg-wrapper.user { align-self: flex-end; justify-content: flex-end; float: right; }
+        .msg-wrapper.bot { align-self: flex-start; float: left; }
+
+        .msg-text { 
+            padding: 14px 18px; 
+            font-size: 14.5px; 
+            line-height: 1.55;
+        }
+        
+        /* Bong bóng chat của User - Gradient Ngọc lục bảo mượt mà */
+        .user .msg-text { 
+            background: linear-gradient(135deg, var(--secondary) 0%, #008a7b 100%); 
+            color: white; 
+            border-radius: 18px 18px 4px 18px; 
+            box-shadow: 0 4px 15px rgba(0, 168, 150, 0.2);
+        }
+        
+        /* Bong bóng chat của Bot - Lớp kính trắng đục đổ bóng mềm */
+        .bot .msg-text { 
+            background: rgba(255, 255, 255, 0.92); 
+            color: var(--text-dark); 
+            border-radius: 18px 18px 18px 4px;
+            border: 1px solid rgba(226, 232, 240, 0.7);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+        }
+
+        /* Khung nhập nội dung chat nổi bật bên dưới */
+        .chat-input-area {
+            padding: 18px 25px;
+            background: rgba(255, 255, 255, 0.5);
+            border-top: 1px solid rgba(237, 242, 247, 0.5);
+            display: flex;
+            gap: 12px;
+        }
+        .chat-input-area input { padding-left: 20px; border-radius: 14px; background: rgba(255, 255, 255, 0.8); border: 1px solid rgba(226, 232, 240, 0.8); }
+        .chat-input-area button { width: auto; padding: 0 22px; border-radius: 14px; }
+
+        /* HIỆU ỨNG LOADING */
+        .typing-indicator { display: flex; align-items: center; gap: 4px; padding: 6px 4px; }
+        .typing-indicator span { width: 8px; height: 8px; background: #a0aec0; border-radius: 50%; animation: blink 1.4s infinite both; }
+        .typing-indicator span:nth-child(2) { animation-delay: .2s; }
+        .typing-indicator span:nth-child(3) { animation-delay: .4s; }
+
+        /* Định dạng Rich UI Table */
+        table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 13.5px; background: #fff; border-radius: 8px; overflow: hidden;}
+        th, td { border: 1px solid #e2e8f0; padding: 10px; text-align: left; }
+        th { background-color: #f7fafc; font-weight: 600; color: var(--primary); }
+
+        /* Các hiệu ứng chuyển động Animations */
+        @keyframes blink { 0% { opacity: .2; } 20% { opacity: 1; } 100% { opacity: .2; } }
+        @keyframes pulse { 0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(72, 187, 120, 0.7); } 70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(72, 187, 120, 0); } 100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(72, 187, 120, 0); } }
+        
+        /* Tương thích mượt mà trên thiết bị di động */
+        @media (max-width: 768px) {
+            .brand-logo { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); width: 100px; }
+            .screen { margin-top: 80px; width: 95%; }
+        }
+    </style>
+</head>
+<body>
+
+    <img src="https://img.gotit.vn/compress/brand/1715332673_vSdEn.png" class="brand-logo" alt="VinWonders Logo">
+
+    <div id="onboardingScreen" class="screen">
+        <div class="banner-wrapper">
+            <img src="https://cdn.vivutour.vn/2025/12/VinWonders-hanoi-Wave-Park-8-1.jpg" class="banner">
+        </div>
+        <div class="content">
+            <h1>Chào mừng quý khách!</h1>
+            <div style="height: 15px;"></div> 
+            
+            <label><i class="fa-solid fa-user" style="margin-right: 5px; color: var(--primary);"></i> Tên của quý khách:</label>
+            <div class="input-group">
+                <i class="fa-solid fa-id-card"></i>
+                <input type="text" id="username" placeholder="Nhập tên hoặc danh xưng của bạn...">
+            </div>
+
+            <label><i class="fa-solid fa-wallet" style="margin-right: 5px; color: var(--primary);"></i> Mức ngân sách dự kiến:</label>
+            <div class="input-group">
+                <i class="fa-solid fa-comment-dollar"></i>
+                <select id="budget">
+                    <option value="tiết kiệm">Tiết kiệm (Tối ưu chi phí, nhiều ưu đãi)</option>
+                    <option value="thoải mái">Thoải mái (Trải nghiệm trọn vẹn dịch vụ cao cấp)</option>
+                </select>
+            </div>
+
+            <label><i class="fa-solid fa-users" style="margin-right: 5px; color: var(--primary);"></i> Số người tham gia chuyến đi:</label>
+            <div class="input-group">
+                <i class="fa-solid fa-user-group"></i>
+                <input type="number" id="participants" min="1" value="1" placeholder="Ví dụ: 1, 2, 4...">
+            </div>
+
+            <label><i class="fa-solid fa-child" style="margin-right: 5px; color: var(--primary);"></i> Có trẻ em đi cùng không:</label>
+            <div class="input-group">
+                <i class="fa-solid fa-baby"></i>
+                <select id="hasChildren">
+                    <option value="không">Không có trẻ em</option>
+                    <option value="có">Có trẻ em đi cùng</option>
+                </select>
+            </div>
+
+            <label><i class="fa-solid fa-heart" style="margin-right: 5px; color: var(--primary);"></i> Sở thích / Yêu cầu đặc biệt (Tùy chọn):</label>
+            <div class="input-group" style="margin-bottom: 25px;">
+                <i class="fa-solid fa-star"></i>
+                <input type="text" id="interests" placeholder="Ví dụ: Công viên nước, cảm giác mạnh, check-in chụp ảnh...">
+            </div>
+            
+            <button onclick="startChat()">Bắt đầu tư vấn ngay <i class="fa-solid fa-arrow-right" style="margin-left:5px;"></i></button>
+        </div>
+    </div>
+
+    <div id="chatScreen" class="screen" style="display:none;">
+        <div class="chat-header">
+            <div class="bot-status-info">
+                <p class="bot-name">VinWonders AI Advisor</p>
+            </div>
+            <span class="header-online-dot"></span>
+        </div>
+
+        <div class="chat-container">
+            <div class="chat-box" id="chatBox">
+                </div>
+        </div>
+
+        <div class="chat-input-area">
+            <input type="text" id="userInput" placeholder="Hỏi về giá vé, lịch trình, ẩm thực..." onkeypress="if(event.key === 'Enter') sendMessage()">
+            <button onclick="sendMessage()"><i class="fa-solid fa-paper-plane"></i></button>
+        </div>
+    </div>
+
+    <script>
+        // Khởi tạo các biến toàn cục để lưu thông tin form tổng hợp
+        let userName = "";
+        let budget = "";
+        let participants = 1;
+        let hasChildren = "không";
+        let interests = "";
+
+        function showScreen(id) {
+            document.querySelectorAll('.screen').forEach(s => s.style.display = 'none');
+            document.getElementById(id).style.display = 'block';
+            
+            if (id === 'chatScreen') {
+                const chatBox = document.getElementById('chatBox');
+                chatBox.scrollTop = chatBox.scrollHeight;
+            }
+        }
+
+        function startChat() {
+            userName = document.getElementById('username').value.trim();
+            if(!userName) { 
+                alert("Quý khách vui lòng nhập tên để hệ thống tiện xưng hô!"); 
+                return; 
+            }
+            
+            // Tổng hợp và lưu trữ thông tin từ Form nhập liệu
+            budget = document.getElementById('budget').value;
+            participants = document.getElementById('participants').value || 1;
+            hasChildren = document.getElementById('hasChildren').value;
+            interests = document.getElementById('interests').value.trim();
+            
+            // Xây dựng lời chào hiển thị xác nhận cấu hình lộ trình cá nhân hóa
+            let welcomeText = `Chào **${userName}**! Em là trợ lý ảo của **VinWonders Hà Nội**.\n\nEm đã ghi nhận các thông tin thiết lập chuyến đi của mình:\n- **Ngân sách:** ${budget}\n- **Số người tham gia:** ${participants} người\n- **Trẻ em đi cùng:** ${hasChildren === 'có' ? 'Có' : 'Không'}`;
+            
+            if (interests) {
+                welcomeText += `\n- **Sở thích/Yêu cầu:** ${interests}`;
+            }
+            welcomeText += `\n\nHôm nay ${userName} muốn tìm hiểu thông tin về giá vé, vị trí, hoạt động vui chơi hay lịch trình cụ thể nào ạ?`;
+            
+            document.getElementById('chatBox').innerHTML = '';
+            renderMessage(welcomeText, 'bot');
+            
+            showScreen('chatScreen');
+        }
+
+        function renderMessage(text, sender) {
+            const chatBox = document.getElementById('chatBox');
+            const wrapper = document.createElement('div');
+            wrapper.className = `msg-wrapper ${sender}`;
+            
+            const msgDiv = document.createElement('div');
+            msgDiv.className = 'msg-text';
+            
+            msgDiv.innerHTML = sender === 'bot' ? marked.parse(text) : text;
+            
+            wrapper.appendChild(msgDiv);
+            chatBox.appendChild(wrapper);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('userInput');
+            const userText = input.value.trim();
+            if (!userText) return;
+
+            renderMessage(userText, 'user');
+            input.value = '';
+
+            const chatBox = document.getElementById('chatBox');
+            const loadingWrapper = document.createElement('div');
+            loadingWrapper.className = `msg-wrapper bot`;
+            loadingWrapper.id = 'aiLoadingBubble';
+            loadingWrapper.innerHTML = `
+                <div class="msg-text">
+                    <div class="typing-indicator">
+                        <span></span><span></span><span></span>
+                    </div>
+                </div>
+            `;
+            chatBox.appendChild(loadingWrapper);
+            chatBox.scrollTop = chatBox.scrollHeight;
+
+            // ĐÃ TỔNG HỢP: Đóng gói đầy đủ dữ liệu từ form vào payload gửi tới API
+            const payload = { 
+                prompt: userText,
+                user_name: userName,
+                budget: budget,
+                participants: participants,
+                has_children: hasChildren,
+                interests: interests
+            };
+            
+            try {
+                const response = await fetch('http://127.0.0.1:8000/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await response.json();
+                
+                const loader = document.getElementById('aiLoadingBubble');
+                if(loader) loader.remove();
+
+                renderMessage(data.reply, 'bot');
+                
+            } catch (error) {
+                const loader = document.getElementById('aiLoadingBubble');
+                if(loader) loader.remove();
+                
+                renderMessage("Hệ thống tư vấn đang bận hoặc mất kết nối mạng. Quý khách vui lòng thử lại sau giây lát!", 'bot');
+            }
+        }
+    </script>
+</body>
+</html>
