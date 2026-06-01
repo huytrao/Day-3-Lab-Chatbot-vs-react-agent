@@ -90,7 +90,10 @@ async def add_message(session_id: str, user_id: str, role: str, content: str) ->
             "created_at": now_iso(),
         }
     )
-    await db.chat_sessions.update_one({"session_id": session_id}, {"$set": {"updated_at": now_iso()}})
+    await db.chat_sessions.update_one(
+        {"session_id": session_id},
+        {"$set": {"updated_at": now_iso()}},
+    )
     return str(result.inserted_id)
 
 

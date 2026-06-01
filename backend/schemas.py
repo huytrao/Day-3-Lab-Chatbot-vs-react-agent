@@ -92,6 +92,19 @@ class HistoryResponse(BaseModel):
     messages: List[MessageResponse]
 
 
+class AgentTraceItem(BaseModel):
+    type: str
+    content: Optional[str] = None
+    tool: Optional[str] = None
+    parameters: Optional[Dict[str, Any]] = None
+
+
+class ItineraryItem(BaseModel):
+    time: str
+    place: str
+    description: str
+
+
 class ChatResponse(BaseModel):
     status: int = 200
     reply: str

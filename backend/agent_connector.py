@@ -2,11 +2,7 @@ from typing import Any, Dict
 
 
 def _run_mock_agent(user_message: str, user_profile: dict, chat_history: list) -> Dict[str, Any]:
-    """Return a safe demo response for VinWonders/Vinpearl travel questions.
-
-    This connector is intentionally standalone so the backend does not depend on
-    extra graph/tool files after the main-branch merge cleanup.
-    """
+    """Return a safe demo response for VinWonders/Vinpearl travel questions."""
     text = user_message.lower()
     preferences = user_profile.get("preferences", [])
     travel_group = user_profile.get("travel_group", "general")
@@ -28,7 +24,7 @@ def _run_mock_agent(user_message: str, user_profile: dict, chat_history: list) -
 
     if any(keyword in text for keyword in ["gia", "ve", "ticket", "price"]):
         reply = (
-            "Gia ve demo: nguoi lon khoang 950000 VND, tre em khoang 700000 VND. "
+            "Gia ve demo: nguoi lon khoang 250000 VND, tre em khoang 150000 VND. "
             "Day chi la du lieu demo de lap ke hoach, khong phai gia chinh thuc hay booking that."
         )
     elif any(keyword in text for keyword in ["mua", "nang", "weather", "thoi tiet"]):
@@ -56,12 +52,7 @@ def run_vinwonders_agent(
     user_profile: dict | None = None,
     chat_history: list | None = None,
 ) -> Dict[str, Any]:
-    """Run the VinWonders agent with LangGraph first and mock fallback second.
-
-    This keeps the public function used by `/api/chat` unchanged. Any import,
-    graph, tool, model, or retrieval failure falls back to the previous safe mock
-    response so the backend never crashes.
-    """
+    """Run LangGraph pipeline first and fall back to a safe mock response."""
     safe_profile = user_profile or {}
     safe_history = chat_history or []
 
@@ -79,7 +70,7 @@ def run_vinwonders_agent(
         fallback["agent_trace"] = [
             {
                 "type": "thought",
-                "content": f"LangGraph pipeline lỗi hoặc chưa sẵn sàng, dùng fallback. Error: {str(exc)}",
+                "content": f"LangGraph pipeline loi hoac chua san sang, dung fallback. Error: {str(exc)}",
             },
             *fallback.get("agent_trace", []),
         ]

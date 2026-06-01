@@ -30,3 +30,20 @@ http://localhost:8000/docs
 - `POST /api/chat`
 
 `/api/chat` accepts `text`, `message`, or `content`. If `user_id` or `session_id` is missing, the backend creates them and returns them.
+
+## Agent Pipeline
+
+`backend/agent_connector.py` first tries the LangGraph pipeline in `backend/graph/graph.py`.
+If the graph, tools, local model, or retrieval layer fails, it falls back to a safe demo response.
+
+Tools live in:
+
+```text
+backend/tools/
+```
+
+Flowchart:
+
+```text
+backend/graph/flowchart.md
+```
