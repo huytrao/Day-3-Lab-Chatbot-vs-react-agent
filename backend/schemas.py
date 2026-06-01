@@ -59,6 +59,7 @@ class ChatRequest(BaseModel):
 
     user_id: Optional[str] = None
     session_id: Optional[str] = None
+    prompt: Optional[str] = None
     text: Optional[str] = None
     message: Optional[str] = None
     content: Optional[str] = None
@@ -69,13 +70,13 @@ class ChatRequest(BaseModel):
         if not isinstance(data, dict):
             return data
         normalized = dict(data)
-        for key in ("user_id", "session_id", "text", "message", "content"):
+        for key in ("user_id", "session_id", "prompt", "text", "message", "content"):
             if isinstance(normalized.get(key), str):
                 normalized[key] = normalized[key].strip()
         return normalized
 
     def get_user_message(self) -> Optional[str]:
-        for value in (self.text, self.message, self.content):
+        for value in (self.text, self.message, self.content, self.prompt):
             if isinstance(value, str) and value.strip():
                 return value.strip()
         return None

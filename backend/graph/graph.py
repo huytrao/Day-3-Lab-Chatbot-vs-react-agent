@@ -1,5 +1,5 @@
 import re
-from pathlib import Path
+import unicodedata
 from typing import Any
 
 try:
@@ -19,18 +19,24 @@ try:
 except ImportError:
     from tools import calculate_price, create_itinerary, get_weather, search_vin_knowledge
 
+try:
+    from ..agent.local_model import get_model_path, get_model_status, polish_answer_with_local_model
+except ImportError:
+    from agent.local_model import get_model_path, get_model_status, polish_answer_with_local_model
 
-MODEL_PATH = r"D:\Code\Vinuni\Models\Phi-3-mini-4k-instruct-q4.gguf"
+
+MODEL_PATH = get_model_path()
+
+
+def _normalize_text(text: str) -> str:
+    normalized = unicodedata.normalize("NFD", text or "")
+    without_accents = "".join(char for char in normalized if unicodedata.category(char) != "Mn")
+    return without_accents.lower()
 
 
 def _model_status() -> str:
     """Return local model availability without making the graph depend on it."""
-    try:
-        if Path(MODEL_PATH).exists():
-            return f"Local model available at {MODEL_PATH}"
-        return f"Local model not found at {MODEL_PATH}; using rule-based synthesis."
-    except Exception as exc:
-        return f"Local model path check failed: {exc}; using rule-based synthesis."
+    return get_model_status()
 
 
 def _append_trace(state: AgentState, item: dict[str, Any]) -> list[dict[str, Any]]:
@@ -50,7 +56,7 @@ def receive_input_node(state: AgentState) -> AgentState:
         "tool_results": state.get("tool_results") or [],
         "agent_trace": _append_trace(
             state,
-            {"type": "thought", "content": "Đã nhận câu hỏi và context người dùng."},
+            {"type": "thought", "content": "Da nhan cau hoi va context nguoi dung."},
         ),
         "itinerary": state.get("itinerary") or [],
     }
@@ -58,15 +64,21 @@ def receive_input_node(state: AgentState) -> AgentState:
 
 def classify_intent_node(state: AgentState) -> AgentState:
     """Classify user intent with simple deterministic rules."""
-    text = state.get("user_message", "").lower()
-    if any(keyword in text for keyword in ["thời tiết", "thoi tiet", "mưa", "mua", "nắng", "nang"]):
+    text = _normalize_text(state.get("user_message", ""))
+    if any(keyword in text for keyword in ["thoi tiet", "mua", "nang", "weather"]):
         intent = "weather"
-    elif any(keyword in text for keyword in ["vé", "ve", "giá", "gia", "bao nhiêu tiền", "bao nhieu tien"]):
-        intent = "price"
-    elif any(keyword in text for keyword in ["bé", "be", "trẻ em", "tre em", "5 tuổi", "5 tuoi", "chơi gì", "choi gi", "trò gì", "tro gi"]):
-        intent = "knowledge"
-    elif any(keyword in text for keyword in ["lịch trình", "lich trinh", "map", "1 ngày", "1 ngay", "đi đâu trước", "di dau truoc"]):
+    elif any(keyword in text for keyword in ["lich trinh", "map", "1 ngay", "di dau truoc", "itinerary"]):
         intent = "itinerary"
+    elif (
+        "bao nhieu tien" in text
+        or "ticket" in text
+        or "price" in text
+        or "gia ve" in text
+        or re.search(r"\bve\b", text)
+    ):
+        intent = "price"
+    elif any(keyword in text for keyword in ["be", "tre em", "5 tuoi", "choi gi", "tro gi", "kid", "children"]):
+        intent = "knowledge"
     else:
         intent = "general"
 
@@ -75,10 +87,7 @@ def classify_intent_node(state: AgentState) -> AgentState:
         "intent": intent,
         "agent_trace": _append_trace(
             state,
-            {
-                "type": "thought",
-                "content": f"Phân loại intent: {intent}. {_model_status()}",
-            },
+            {"type": "thought", "content": f"Phan loai intent: {intent}. {_model_status()}"},
         ),
     }
 
@@ -121,9 +130,9 @@ def knowledge_tool_node(state: AgentState) -> AgentState:
 
 
 def _parse_guest_counts(text: str) -> tuple[int, int]:
-    lowered = text.lower()
-    adult_match = re.search(r"(\d+)\s*(nguoi lon|người lớn|adult)", lowered)
-    child_match = re.search(r"(\d+)\s*(tre em|trẻ em|be|bé|child|children)", lowered)
+    normalized = _normalize_text(text)
+    adult_match = re.search(r"(\d+)\s*(nguoi lon|adult)", normalized)
+    child_match = re.search(r"(\d+)\s*(tre em|be|child|children)", normalized)
     adults = int(adult_match.group(1)) if adult_match else 1
     children = int(child_match.group(1)) if child_match else 2
     return adults, children
@@ -191,12 +200,16 @@ def synthesize_answer_node(state: AgentState) -> AgentState:
         final_answer = " ".join(tool_results)
     else:
         final_answer = (
-            "Tôi đã nhận yêu cầu của bạn. Với khách du lịch đi VinWonders, tôi gợi ý bắt đầu "
-            "bằng khu vui chơi phù hợp gia đình, kiểm tra thời tiết, sau đó tạo lịch trình 1 ngày."
+            "Em da nhan yeu cau cua quy khach. Voi khach du lich di VinWonders, "
+            "em goi y bat dau bang khu vui choi phu hop gia dinh, kiem tra thoi tiet, "
+            "sau do tao lich trinh 1 ngay."
         )
 
     if state.get("intent") in {"knowledge", "general"}:
-        final_answer += " Nếu đi cùng gia đình có trẻ nhỏ, hãy ưu tiên khu vui chơi nhẹ, hồ bơi trẻ em và điểm nghỉ chân."
+        final_answer += " Neu di cung gia dinh co tre nho, hay uu tien khu vui choi nhe, ho boi tre em va diem nghi chan."
+
+    polished_answer = polish_answer_with_local_model(state.get("user_message", ""), final_answer)
+    used_local_model = polished_answer != final_answer
 
     itinerary = state.get("itinerary") or [
         {"time": "09:00", "place": "Check-in", "description": "Vao cong va thong nhat diem hen."},
@@ -208,12 +221,18 @@ def synthesize_answer_node(state: AgentState) -> AgentState:
 
     return {
         **state,
-        "final_answer": final_answer,
+        "final_answer": polished_answer,
         "itinerary": itinerary,
-        "agent_trace": _append_trace(
-            state,
-            {"type": "thought", "content": "Đã tổng hợp kết quả tool thành câu trả lời cuối."},
-        ),
+        "agent_trace": [
+            *_append_trace(
+                state,
+                {"type": "thought", "content": "Da tong hop ket qua tool thanh cau tra loi cuoi."},
+            ),
+            {
+                "type": "observation",
+                "content": "Local model polished the final answer." if used_local_model else f"Local model skipped. {_model_status()}",
+            },
+        ],
     }
 
 
@@ -271,17 +290,7 @@ def run_langgraph_agent(
     user_profile: dict | None = None,
     chat_history: list | None = None,
 ) -> dict:
-    """Run the VinWonders LangGraph pipeline.
-
-    Args:
-        user_message: Latest user question from `/api/chat`.
-        user_profile: Optional profile loaded from MongoDB.
-        chat_history: Optional session history loaded from MongoDB.
-
-    Returns:
-        Dict compatible with the existing backend connector contract:
-        `{"reply": str, "agent_trace": list, "itinerary": list}`.
-    """
+    """Run the VinWonders LangGraph pipeline."""
     initial_state: AgentState = {
         "user_message": user_message,
         "user_profile": user_profile or {},

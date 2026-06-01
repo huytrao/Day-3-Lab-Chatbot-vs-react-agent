@@ -21,12 +21,17 @@ def get_settings() -> dict:
 
 
 settings = get_settings()
-client = AsyncIOMotorClient(settings["mongo_uri"])
+client = AsyncIOMotorClient(settings["mongo_uri"], serverSelectionTimeoutMS=800)
 db: AsyncIOMotorDatabase = client[settings["mongo_db_name"]]
 
 
 async def ping_database() -> None:
-    await client.admin.command("ping")
+    try:
+        await client.admin.command("ping")
+    except Exception:
+        # Demo fallback: CRUD functions switch to in-memory storage if MongoDB
+        # is unavailable, so the API can still run for demo.html.
+        return None
 
 
 def close_database() -> None:

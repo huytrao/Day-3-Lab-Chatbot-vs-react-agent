@@ -1,7 +1,9 @@
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, Response
 
 try:
     from . import crud
@@ -52,6 +54,19 @@ app.add_middleware(
 )
 
 
+@app.get("/")
+async def serve_demo() -> FileResponse:
+    demo_path = Path(__file__).resolve().parent.parent / "demo.html"
+    if not demo_path.exists():
+        raise HTTPException(status_code=404, detail="demo.html not found")
+    return FileResponse(demo_path)
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon() -> Response:
+    return Response(status_code=204)
+
+
 @app.get("/health")
 @app.get("/api/health")
 async def health_check() -> dict:
@@ -70,8 +85,38 @@ def default_user_profile(user_id: str) -> dict:
     }
 
 
-async def create_guest_user() -> str:
-    return await crud.create_user(name="Guest User")
+def profile_from_chat_payload(payload: ChatRequest, user_id: str) -> dict:
+    extras = getattr(payload, "__pydantic_extra__", {}) or {}
+    participants = extras.get("participants")
+    has_children = str(extras.get("has_children", "")).lower()
+    interests = extras.get("interests") or extras.get("preferences") or []
+    if isinstance(interests, str):
+        interests = [item.strip() for item in interests.split(",") if item.strip()]
+
+    children = 1 if has_children in {"co", "có", "yes", "true", "1"} else 0
+    try:
+        adults = max(1, int(participants or 1) - children)
+    except Exception:
+        adults = 1
+
+    return {
+        "user_id": user_id,
+        "travel_group": "family" if children else "general",
+        "age_group": "children" if children else "general",
+        "budget": extras.get("budget", "medium"),
+        "preferences": interests,
+        "duration": "1_day",
+        "priority": "general_advice",
+        "adults": adults,
+        "children": children,
+        "location": extras.get("location", "VinWonders"),
+    }
+
+
+async def create_guest_user(payload: ChatRequest | None = None) -> str:
+    extras = getattr(payload, "__pydantic_extra__", {}) if payload else {}
+    name = extras.get("user_name") or extras.get("name") or "Guest User"
+    return await crud.create_user(name=name)
 
 
 @app.post("/api/init_user", response_model=InitUserResponse)
@@ -119,9 +164,9 @@ async def chat(payload: ChatRequest) -> ChatResponse:
     if user_id:
         user = await crud.get_user_by_id(user_id)
         if not user:
-            user_id = await create_guest_user()
+            user_id = await create_guest_user(payload)
     else:
-        user_id = await create_guest_user()
+        user_id = await create_guest_user(payload)
 
     session_id = payload.session_id
     if session_id:
@@ -131,7 +176,9 @@ async def chat(payload: ChatRequest) -> ChatResponse:
     else:
         session_id = await crud.create_chat_session(user_id=user_id)
 
-    user_profile = await crud.get_user_profile(user_id=user_id) or default_user_profile(user_id)
+    user_profile = await crud.get_user_profile(user_id=user_id) or profile_from_chat_payload(payload, user_id)
+    if not user_profile:
+        user_profile = default_user_profile(user_id)
 
     await crud.add_message(
         session_id=session_id,

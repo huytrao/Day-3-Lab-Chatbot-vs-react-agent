@@ -338,6 +338,8 @@
         let participants = 1;
         let hasChildren = "không";
         let interests = "";
+        let backendUserId = "";
+        let backendSessionId = "";
 
         function showScreen(id) {
             document.querySelectorAll('.screen').forEach(s => s.style.display = 'none');
@@ -384,7 +386,7 @@
             const msgDiv = document.createElement('div');
             msgDiv.className = 'msg-text';
             
-            msgDiv.innerHTML = sender === 'bot' ? marked.parse(text) : text;
+            msgDiv.innerHTML = sender === 'bot' && window.marked ? marked.parse(text) : text;
             
             wrapper.appendChild(msgDiv);
             chatBox.appendChild(wrapper);
@@ -415,6 +417,9 @@
 
             // ĐÃ TỔNG HỢP: Đóng gói đầy đủ dữ liệu từ form vào payload gửi tới API
             const payload = { 
+                user_id: backendUserId || undefined,
+                session_id: backendSessionId || undefined,
+                text: userText,
                 prompt: userText,
                 user_name: userName,
                 budget: budget,
@@ -430,11 +435,16 @@
                     body: JSON.stringify(payload)
                 });
                 const data = await response.json();
+                if (!response.ok) {
+                    throw new Error(data.detail || 'API request failed');
+                }
+                backendUserId = data.user_id || backendUserId;
+                backendSessionId = data.session_id || backendSessionId;
                 
                 const loader = document.getElementById('aiLoadingBubble');
                 if(loader) loader.remove();
 
-                renderMessage(data.reply, 'bot');
+                renderMessage(data.reply || "Em đã nhận được câu hỏi, nhưng hiện chưa có nội dung trả lời.", 'bot');
                 
             } catch (error) {
                 const loader = document.getElementById('aiLoadingBubble');

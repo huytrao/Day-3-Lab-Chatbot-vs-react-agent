@@ -36,6 +36,20 @@ http://localhost:8000/docs
 `backend/agent_connector.py` first tries the LangGraph pipeline in `backend/graph/graph.py`.
 If the graph, tools, local model, or retrieval layer fails, it falls back to a safe demo response.
 
+Local GGUF model:
+
+```text
+models/Phi-3-mini-4k-instruct-q4.gguf
+```
+
+Configure path in `backend/.env`:
+
+```text
+LOCAL_MODEL_PATH=./models/Phi-3-mini-4k-instruct-q4.gguf
+```
+
+The local model is optional. If `llama-cpp-python`, the model file, or the CPU runtime fails, `/api/chat` still returns the rule-based LangGraph answer and records the fallback reason in `agent_trace`.
+
 Tools live in:
 
 ```text
