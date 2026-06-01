@@ -1,57 +1,107 @@
-Group Report: Lab 3 - Production-Grade Agentic System
-Team Name: VinWonders AI Navigators
-Team Members:
-Công Thái - 2A202600949
-Lê Hữu Đạt - 2A202600630
-Nguyễn Đông Anh - 2A202600760
-Lê Trí Nguyên - 2A202600651
-Trảo An Huy - 2A202600819
+# Group Report: Lab 3 - Production-Grade Agentic System
 
-Deployment Date: 2026-06-01
+- **Team Name**: VinWonders AI Team
+- **Team Members**:
+  Công Thái - 2A202600949
+  Lê Hữu Đạt - 2A202600630
+  Nguyễn Đông Anh - 2A202600760
+  Lê Trí Nguyên - 2A202600651
+  Trảo An Huy - 2A202600819
+- **Deployment Date**: 2026-06-01
 
-1. Executive Summary
-   The goal of this project was to develop a specialized ReAct Agent to serve as a smart concierge for VinWonders Wave Park & Water Park. Unlike a traditional chatbot, this agent can access real-time weather data, retrieve specific park regulations from a Vector Database (RAG), and perform precise ticket pricing calculations.
-   Success Rate: 88% on 25 complex test cases.
-   Key Outcome: Our agent solved 60% more multi-step queries than the chatbot baseline, particularly in scenarios requiring cross-referencing weather conditions with pricing logic and park policies.
-2. System Architecture & Tooling
-   2.1 ReAct Loop Implementation
-   We implemented the Thought-Action-Observation loop using LangGraph to maintain state and control flow:
-   Thought: The LLM analyzes the user's intent (e.g., "It's sunny, how much for 2 adults?").
-   Action: The agent selects and calls the relevant tools (get_weather and ticket_calculator).
-   Observation: The system returns tool outputs (e.g., "36°C" and "500,000 VND").
-   Final Response: The agent synthesizes a helpful, natural language answer for the user.
-   2.2 Tool Definitions (Inventory)
-   Tool Name Input Format Use Case
-   get_weather json {"location": "string"} Retrieves real-time weather to suggest outdoor/indoor activities.
-   search_vin_info string RAG-based search for park rules, height requirements, and schedules.
-   ticket_calc json {"adults": int, "kids": int} Calculates total price based on current seasonal rates and age groups.
-   2.3 LLM Providers Used
-   Primary: GPT-4o-mini (High tool-calling accuracy and low latency).
-   Secondary (Backup): Gemini 1.5 Flash (Used for fallback reasoning if rate limits are hit).
-3. Telemetry & Performance Dashboard
-   Metrics collected during the final evaluation of 50 varied user prompts:
-   Average Latency (P50): 2100ms (Includes RAG retrieval and API tool execution).
-   Max Latency (P99): 6200ms (Occurred during deep multi-turn reasoning loops).
-   Average Tokens per Task: 480 tokens.
-   Total Cost of Test Suite: $0.12.
-4. Root Cause Analysis (RCA) - Failure Traces
-   Case Study: Type Mismatch in Tool Argument
-   Input: "My family has 2 adults and one child who is 1.2m tall."
-   Observation: The agent attempted to call ticket_calc(adults=2, kids="1.2m"). The tool failed because the kids argument expected an integer (count), not a string (height).
-   Root Cause: The system prompt and tool docstrings did not explicitly instruct the agent on how to map "height" to "ticket count" based on park policy.
-   Resolution: Updated the tool description to: "Input the number of children only. If the user mentions height, apply policy: <1m = free, >1m = 1 child ticket."
-5. Ablation Studies & Experiments
-   Experiment 1: Prompt v1 (Basic) vs Prompt v2 (Few-Shot)
-   Diff: Added 3 Few-Shot examples demonstrating correct JSON formatting for tool calls.
-   Result: Reduced "Invalid Tool Argument" errors by 45%.
-   Experiment 2 (Bonus): Chatbot vs Agent
-   Case Chatbot Result Agent Result Winner
-   Refund Policy General/Generic info Specific policy from VectorDB Agent
-   Total Price Calc Often made math errors 100% accurate via Python Tool Agent
-   Simple Greeting Fast & Friendly Slightly slower (overhead) Chatbot
-6. Production Readiness Review
-   Steps required to transition from Lab to Production:
-   Security: Implement Input Sanitization to prevent Prompt Injection attempts aimed at bypassing ticket fees.
-   Guardrails: Hard-coded a Max 5-loop limit in LangGraph to prevent infinite loops and runaway API costs.
-   Scaling: Migrate from local ChromaDB to Pinecone for high-concurrency vector searches.
-   Monitoring: Integration of LangSmith for real-time trace monitoring and hallucination detection in production.
+---
+
+## 1. Executive Summary
+
+Mục tiêu của dự án là nâng cấp từ một Chatbot LLM cơ bản lên hệ thống **ReAct Agent** (Reasoning and Acting) có khả năng giải quyết các truy vấn phức tạp của khách du lịch VinWonders (đòi hỏi nhiều bước như: tra cứu thời tiết, tìm giá vé, tính tổng tiền).
+
+- **Key Outcome**: Agent của nhóm đã giải quyết được **55%** số lượng truy vấn đa bước (multi-step queries) mà Chatbot baseline hoàn toàn thất bại (Chatbot baseline thường xuyên bị ảo giác giá vé hoặc không thể kết hợp thời tiết và lịch trình). Chúng tôi đã triển khai thành công 4 công cụ (Tools) với cơ chế tự phục hồi (Self-healing/Retry) khi parse lỗi.
+
+---
+
+## 2. System Architecture & Tooling
+
+### 2.1 ReAct Loop Implementation & Flowchart
+
+Kiến trúc hệ thống được xây dựng theo mô hình vòng lặp **Thought-Action-Observation**. Backend (FastAPI) nhận request từ UI, duy trì trạng thái ngữ cảnh từ Database và đưa cho Agent xử lý.
+
+### 2.2 Tool Definitions & Evolution (Inventory)
+
+Nhóm đã phát triển 4 công cụ chính và liên tục nâng cấp đặc tả (Spec Evolution) từ V1 lên V2 để LLM dễ hiểu hơn:
+
+| Tool Name              | Input Format                                                 | Use Case                                             | Evolution from v1 to v2                                                                                      |
+| :--------------------- | :----------------------------------------------------------- | :--------------------------------------------------- | :----------------------------------------------------------------------------------------------------------- |
+| `search_vin_knowledge` | `{"query": "string"}`                                        | Tra cứu thông tin vé, địa điểm từ Vector DB (Chroma) | **V2**: Thêm chỉ dẫn rõ ràng cấm LLM tự bịa giá nếu không tìm thấy.                                          |
+| `get_weather`          | `{"location": "str", "date": "str"}`                         | Lấy thời tiết thực tế                                | **V2**: Định dạng chuẩn `YYYY-MM-DD` thay vì text tự do.                                                     |
+| `calc_price`           | `{"ticket_type": "str", "adult_count": 0, "child_count": 0}` | Tính tổng tiền vé                                    | **V2**: Tách biệt rõ `adult_count` và `child_count` thành kiểu _Integer_, chặn tính toán sai do LLM tự cộng. |
+| `itinerary_tool`       | `{"preferences": "str", "duration_hours": 0}`                | Lên lịch trình tự động                               | **Bonus Tool**: Sinh lịch trình dựa trên độ tuổi (lấy từ User Profile).                                      |
+
+### 2.3 LLM Providers Used
+
+- **Primary**: Cấu hình chạy Local Model `Phi-3-mini-4k-instruct` (cho phép dev cục bộ không tốn phí).
+- **Secondary (Backup/Polish)**: `Gemini 1.5 Flash` (Sử dụng Provider Pattern để chuyển đổi linh hoạt, dùng để đánh bóng câu trả lời cuối cùng).
+
+---
+
+## 3. Telemetry & Performance Dashboard (Extra Monitoring Bonus)
+
+Hệ thống được tích hợp monitor sâu (Telemetry Logging) giúp đo đếm hiệu suất xử lý thực tế:
+
+- **Average Latency (P50)**: 1450ms (Cho các câu hỏi đơn giản, không gọi tool).
+- **Max Latency (P99)**: 6200ms (Cho các truy vấn đa bước gọi tool 3 vòng lặp).
+- **Average Tokens per Task**: ~850 tokens (đã tối ưu bằng Sliding Window giữ 5 lượt hội thoại).
+- **Tool Success Ratio**: 92% (Tỉ lệ tool parse chuẩn JSON ngay từ lần đầu).
+- **Cost Metrics**: Hoàn toàn miễn phí khi dùng Local Phi-3. Chi phí API Gemini mô phỏng < $0.01 cho 100 requests.
+
+---
+
+## 4. Root Cause Analysis (RCA) - Failure Traces
+
+### Case Study 1: [Hallucinated JSON Format & Infinite Loop] (Agent v1)
+
+- **Input**: "Tính tổng tiền 2 vé người lớn và 1 vé trẻ em đi Wave Park."
+- **Observation / Trace**: LLM sinh ra `{"tool": "calc_price", "params": "2 người lớn 1 trẻ em"}` thay vì JSON chuẩn `{"adult_count": 2, "child_count": 1}`.
+- **Root Cause**: Prompt V1 chưa có ví dụ (Few-Shot Prompting) cụ thể về cấu trúc JSON param của tool `calc_price`, dẫn đến Parser bị sập. LLM nhận về `"Error: Invalid JSON"`, sau đó hoảng loạn và tiếp tục ném ra dữ liệu sai, ngốn sạch Max Tokens (Infinite Loop).
+- **Agent v2 Fix (Failure Handling Bonus)**:
+  - Cập nhật System Prompt với cấu trúc _Few-Shot_.
+  - Thêm Guardrail: Nếu JSON parse lỗi, hệ thống tự động chèn Observation: `Error: Params must be valid JSON exact to {"adult_count": int, "child_count": int}. Please try again.` vào Prompt.
+
+### Case Study 2: [Knowledge Hallucination]
+
+- **Input**: "Công viên có mở cửa lúc 3h sáng không?"
+- **Observation**: `search_vin_knowledge` trả về kết quả rỗng. LLM tự động trả lời: `"Dạ công viên mở cửa 24/24"`.
+- **Root Cause**: Thiếu chỉ thị "Say I don't know if not in Observation".
+- **Fix**: Thêm ràng buộc cứng vào Prompt và Gemni Polish step: `"Chỉ sử dụng thông tin từ file context. Cấm bịa đặt."`.
+
+---
+
+## 5. Ablation Studies & Experiments (Bonus)
+
+### Experiment 1: Prompt v1 (Zero-Shot) vs Prompt v2 (Few-Shot)
+
+- **Diff**: Thêm 2 ví dụ minh họa cách tư duy (Thought) trước khi gọi Action.
+- **Result**: Giảm hẳn lỗi cú pháp. Tỉ lệ gọi Tool thành công ngay lần đầu tăng từ **45% lên 92%**.
+
+### Experiment 2: Baseline LLM Chatbot vs ReAct Agent
+
+Đánh giá trên bộ 20 câu hỏi tổ hợp (Complex Queries):
+| Case Type | Chatbot Baseline Result | ReAct Agent Result | Winner |
+| :--- | :--- | :--- | :--- |
+| Simple Q (Chào hỏi, hỏi giá lẻ) | Trả lời nhanh (1s) | Trả lời hơi chậm (3s) | **Chatbot** (vì UX nhanh) |
+| Multi-step (Thời tiết mai + lịch trình) | Bịa thời tiết, lịch trình bất hợp lý | Gọi API Thời tiết -> Tạo lịch trình thực tế | **ReAct Agent** |
+| Math (Tính tiền 5 lớn, 3 nhỏ ghép combo) | Sai toán học (Hallucination) | Gọi `calc_price` -> Chính xác 100% | **ReAct Agent** |
+
+---
+
+## 6. Production Readiness Review
+
+Để đưa hệ thống Agent này triển khai cho chuỗi thực tế của VinWonders (Production), nhóm đề xuất:
+
+1. **Security**:
+   - Đầu vào (Prompt Injection): Cần cơ chế lọc input của người dùng trước khi đưa vào LLM để tránh các câu lệnh ép agent lộ System Prompt.
+   - Database / CORS: Đã được xử lý ở mức backend API, chặn query SQL Injection từ phía Frontend.
+2. **Guardrails**:
+   - Limit số vòng lặp: Đã thiết lập MAX_LOOPS = 5. Nếu quá 5 bước mà Agent chưa ra Final Answer, buộc phải dừng và xin lỗi khách để tránh bill tiền API tăng vô hạn.
+3. **Scaling**:
+   - Nâng cấp lưu trữ bộ nhớ (Memory): Sử dụng Redis để quản lý session tốc độ cao, thay vì query DB Postgres liên tục.
+   - Kiến trúc Graph: Rời khỏi vòng lặp `while` cơ bản của Python và chuyển sang dùng _LangGraph_ cho phép rẽ nhánh, có trạng thái (Stateful) mạnh mẽ hơn.
