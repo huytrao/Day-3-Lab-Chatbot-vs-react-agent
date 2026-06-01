@@ -110,13 +110,14 @@ if __name__ == "__main__":
 
     # Danh sách URL VinWonders Wave Park & Water Park nhắm vào trang giá vé và quy định
     urls_to_crawl = [
-        "https://vinwonders.com/vi/bai-viet-huong-dan-vui-choi/",
-        "https://vinwonders.com/vi/ve-tham-quan/",
-        "https://vinwonders.com/vi/thong-tin-huu-ich/",
-        "https://vinwonders.com/vi/diem-den/wave-park/",
+        "https://vinwonders.com/vi/vinwonders-wave-park-water-park-price-regulations/",
+        "https://vinwonders.com/vi/vinwonders-nha-trang-price-and-regulations/",
+        "https://vinwonders.com/vi/vinwonders-phu-quoc-price-and-regulations/",
+        "https://vinwonders.com/vi/vinwonders-nam-hoi-an-price-and-regulations/",
         "https://vinwonders.com/vi/diem-den/water-park/",
-        "https://vinwonders.com/vi/bai-viet-gia-ve/",
-        "https://vinwonders.com/vi/chinh-sach-va-quy-dinh/",
+        "https://vinwonders.com/vi/wonderpedia/news/cong-vien-song-vinwonders-wave-park/",
+        "https://vinwonders.com/vi/wonderpedia/news/kinh-nghiem-di-vinwonders-va-vinpearl-safari-phu-quoc-day-du-nhat/",
+        "https://vinwonders.com/vi/bai-viet-du-lich/vinwonders-ha-noi/",
     ]
 
     # PDF đặt trong cùng thư mục data/
