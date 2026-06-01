@@ -141,7 +141,256 @@ for q in queries:
 
 ---
 
-## Tích hợp vào Agent (cho Thành viên 4)
+## Hướng dẫn cho Thành viên 4 — Tool Maker & LangGraph Engineer
+
+### Tổng quan vai trò
+
+Thành viên 4 chịu trách nhiệm:
+- Xây dựng các **Python Tools** để Agent gọi (lấy thời tiết, tra giá vé, query Vector DB)
+- Dùng **LangGraph** xây dựng State Graph định tuyến đúng Tool vào đúng thời điểm
+- Định dạng **Observation** chuẩn để trả kết quả ngược lại cho ReAct Agent (Thành viên 5)
+
+---
+
+### Cài đặt thêm
+
+```bash
+pip install langgraph langchain langchain-anthropic
+```
+
+---
+
+### Tool 1 — Query Vector DB (dùng file có sẵn)
+
+Không cần viết lại, dùng thẳng `retrieve_info()` từ `db_accessor.py`:
+
+```python
+import sys
+sys.path.insert(0, "data")
+from db_accessor import retrieve_info
+
+def tool_query_vinwonders(query: str) -> str:
+    """Tool tra cứu thông tin VinWonders từ Vector DB."""
+    chunks = retrieve_info(query, n_results=3)
+    if not chunks:
+        return "Không tìm thấy thông tin liên quan."
+    context = "\n\n".join([c["page_content"] for c in chunks])
+    return context
+```
+
+**Đầu vào:** `query` — câu hỏi của người dùng (ví dụ: `"giá vé người lớn Wave Park"`)
+
+**Đầu ra:** chuỗi text gộp các chunk liên quan nhất từ Vector DB
+
+---
+
+### Tool 2 — Lấy thời tiết (Weather API)
+
+```python
+import requests
+
+def tool_get_weather(location: str, date: str = "today") -> str:
+    """Tool lấy thông tin thời tiết theo địa điểm và ngày."""
+    # Dùng Open-Meteo (miễn phí, không cần API key)
+    geo_url = f"https://geocoding-api.open-meteo.com/v1/search?name={location}&count=1&language=vi"
+    geo_res = requests.get(geo_url).json()
+
+    if not geo_res.get("results"):
+        return f"Không tìm thấy địa điểm: {location}"
+
+    lat = geo_res["results"][0]["latitude"]
+    lon = geo_res["results"][0]["longitude"]
+
+    weather_url = (
+        f"https://api.open-meteo.com/v1/forecast"
+        f"?latitude={lat}&longitude={lon}"
+        f"&daily=temperature_2m_max,temperature_2m_min,precipitation_sum"
+        f"&timezone=Asia%2FHo_Chi_Minh&forecast_days=3"
+    )
+    weather_res = requests.get(weather_url).json()
+    daily = weather_res.get("daily", {})
+
+    if not daily:
+        return "Không lấy được dữ liệu thời tiết."
+
+    result = f"Thời tiết tại {location}:\n"
+    for i, d in enumerate(daily.get("time", [])):
+        t_max = daily["temperature_2m_max"][i]
+        t_min = daily["temperature_2m_min"][i]
+        rain = daily["precipitation_sum"][i]
+        result += f"  {d}: {t_min}°C – {t_max}°C, mưa {rain}mm\n"
+    return result.strip()
+```
+
+---
+
+### Tool 3 — Tra giá vé VinWonders
+
+```python
+TICKET_PRICES = {
+    "wave_park": {"người lớn": 450000, "trẻ em": 350000, "người cao tuổi": 350000},
+    "nha_trang": {"người lớn": 900000, "trẻ em": 700000, "người cao tuổi": 700000},
+    "phu_quoc":  {"người lớn": 850000, "trẻ em": 650000, "người cao tuổi": 650000},
+    "nam_hoi_an":{"người lớn": 750000, "trẻ em": 600000, "người cao tuổi": 600000},
+}
+
+def tool_get_ticket_price(location: str, ticket_type: str = "người lớn") -> str:
+    """Tool tra giá vé VinWonders theo địa điểm và loại vé."""
+    location_map = {
+        "wave park": "wave_park", "nha trang": "nha_trang",
+        "phú quốc": "phu_quoc",  "nam hội an": "nam_hoi_an",
+    }
+    key = location_map.get(location.lower().strip())
+    if not key:
+        return f"Không có thông tin giá vé cho địa điểm: {location}. Thử: Wave Park, Nha Trang, Phú Quốc, Nam Hội An."
+
+    prices = TICKET_PRICES[key]
+    ticket_key = ticket_type.lower().strip()
+    if ticket_key not in prices:
+        return f"Loại vé '{ticket_type}' không hợp lệ. Chọn: người lớn, trẻ em, người cao tuổi."
+
+    price = prices[ticket_key]
+    return f"Giá vé {ticket_type} tại VinWonders {location}: {price:,} VNĐ"
+```
+
+> **Lưu ý:** Giá vé trên là ví dụ minh họa. Nên gọi `tool_query_vinwonders("giá vé ...")` để lấy giá chính xác từ Vector DB thay vì hardcode.
+
+---
+
+### Xây dựng State Graph với LangGraph
+
+```python
+from langgraph.graph import StateGraph, END
+from typing import TypedDict, Literal
+
+# --- Định nghĩa State ---
+class AgentState(TypedDict):
+    user_query: str
+    tool_name: str          # tên tool cần gọi (từ ReAct Agent)
+    tool_args: dict         # tham số tool
+    observation: str        # kết quả tool trả về
+    next: str               # node tiếp theo
+
+# --- Các node trong graph ---
+def route_tool(state: AgentState) -> AgentState:
+    """Định tuyến đến đúng tool dựa trên tool_name."""
+    return state  # routing logic nằm ở conditional_edge
+
+def run_query_tool(state: AgentState) -> AgentState:
+    result = tool_query_vinwonders(state["tool_args"].get("query", state["user_query"]))
+    return {**state, "observation": result}
+
+def run_weather_tool(state: AgentState) -> AgentState:
+    args = state["tool_args"]
+    result = tool_get_weather(args.get("location", ""), args.get("date", "today"))
+    return {**state, "observation": result}
+
+def run_ticket_tool(state: AgentState) -> AgentState:
+    args = state["tool_args"]
+    result = tool_get_ticket_price(args.get("location", ""), args.get("ticket_type", "người lớn"))
+    return {**state, "observation": result}
+
+def fallback_tool(state: AgentState) -> AgentState:
+    return {**state, "observation": f"Không tìm thấy tool: {state['tool_name']}"}
+
+# --- Hàm chọn node tiếp theo ---
+def select_tool(state: AgentState) -> Literal["query_db", "weather", "ticket", "fallback"]:
+    mapping = {
+        "query_vinwonders": "query_db",
+        "get_weather":      "weather",
+        "get_ticket_price": "ticket",
+    }
+    return mapping.get(state["tool_name"], "fallback")
+
+# --- Xây graph ---
+graph = StateGraph(AgentState)
+graph.add_node("router",   route_tool)
+graph.add_node("query_db", run_query_tool)
+graph.add_node("weather",  run_weather_tool)
+graph.add_node("ticket",   run_ticket_tool)
+graph.add_node("fallback", fallback_tool)
+
+graph.set_entry_point("router")
+graph.add_conditional_edges("router", select_tool)
+graph.add_edge("query_db", END)
+graph.add_edge("weather",  END)
+graph.add_edge("ticket",   END)
+graph.add_edge("fallback", END)
+
+tool_graph = graph.compile()
+```
+
+---
+
+### Định dạng Observation trả về cho Agent
+
+Mỗi tool phải trả về chuỗi theo định dạng chuẩn để ReAct Agent (Thành viên 5) parse được:
+
+```python
+def format_observation(tool_name: str, result: str) -> str:
+    return f"[Observation from {tool_name}]\n{result}"
+
+# Ví dụ gọi toàn bộ flow
+def execute_tool(tool_name: str, tool_args: dict, user_query: str) -> str:
+    state = {
+        "user_query": user_query,
+        "tool_name": tool_name,
+        "tool_args": tool_args,
+        "observation": "",
+        "next": "",
+    }
+    result_state = tool_graph.invoke(state)
+    return format_observation(tool_name, result_state["observation"])
+```
+
+**Ví dụ sử dụng:**
+
+```python
+# ReAct Agent gửi action: tool_name="get_weather", args={"location": "Phú Quốc", "date": "cuối tuần"}
+obs = execute_tool("get_weather", {"location": "Phú Quốc"}, "thời tiết Phú Quốc cuối tuần")
+print(obs)
+# [Observation from get_weather]
+# Thời tiết tại Phú Quốc:
+#   2026-06-07: 26°C – 33°C, mưa 5.2mm
+#   ...
+
+obs = execute_tool("get_ticket_price", {"location": "Wave Park", "ticket_type": "trẻ em"}, "giá vé trẻ em Wave Park")
+print(obs)
+# [Observation from get_ticket_price]
+# Giá vé trẻ em tại VinWonders Wave Park: 350,000 VNĐ
+```
+
+---
+
+### Sơ đồ luồng LangGraph
+
+```
+[ReAct Agent (TV5)]
+        │
+        │  Action: {tool_name, args}
+        ▼
+   ┌─────────┐
+   │ router  │  ← entry point
+   └────┬────┘
+        │ conditional_edge (dựa trên tool_name)
+   ┌────┴──────────────────┐
+   │                       │
+   ▼                       ▼                    ▼
+[query_db]           [weather]            [ticket]
+retrieve_info()   open-meteo API     TICKET_PRICES dict
+   │                   │                    │
+   └───────────────────┴────────────────────┘
+                        │
+                        ▼
+                  format_observation()
+                        │
+                        ▼
+              [ReAct Agent (TV5)] nhận Observation
+```
+
+---
+
+### Tích hợp vào Agent (cho Thành viên 4)
 
 Dùng hàm `retrieve_info()` từ `db_accessor.py`:
 
