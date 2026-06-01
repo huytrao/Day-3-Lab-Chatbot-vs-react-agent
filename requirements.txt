@@ -1,7 +1,23 @@
-openai>=1.0.0
-google-generativeai>=0.5.0
+# LLM Providers
+# openai>=1.0.0
+# google-generativeai>=0.5.0
+
+# Environment & Config
 python-dotenv>=1.0.0
 pydantic>=2.0.0
+
+# HTTP & Requests
 requests>=2.31.0
-pytest>=7.4.0
+
+# Local Model Support
 llama-cpp-python>=0.2.0
+
+# ReAct & Agent Framework (Member 5 - AI Core & Prompt)
+langchain>=0.1.0
+langchain-core>=0.1.0
+langchain-community>=0.0.10
+langgraph>=0.0.20
+
+# Testing
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
